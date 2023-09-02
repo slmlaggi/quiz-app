@@ -27,6 +27,7 @@ def create_tables():
     cursor.execute("""CREATE TABLE IF NOT EXISTS questions (
                         id INTEGER PRIMARY KEY,
                         quiz_id INTEGER,
+                        question_id INTEGER,
                         question TEXT,
                         answer_a TEXT,
                         answer_b TEXT,
@@ -77,9 +78,9 @@ def insert_quiz_from_file(file_path, overwrite=False):
             answer_d = lines[i * 6 + 4].strip()
             correct_answer = lines[i * 6 + 5].strip()
 
-            cursor.execute("""INSERT INTO questions (quiz_id, question, answer_a, answer_b, answer_c, answer_d, correct_answer)
-                                VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                           (quiz_id, question, answer_a, answer_b, answer_c, answer_d, correct_answer))
+            cursor.execute("""INSERT INTO questions (quiz_id, question_id, question, answer_a, answer_b, answer_c, answer_d, correct_answer)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                           (quiz_id, i + 1, question, answer_a, answer_b, answer_c, answer_d, correct_answer))
 
     conn.commit()
 
@@ -93,12 +94,13 @@ def take_quiz(quiz_id, user_id):
 
     correct_count = 0
     answers = []
+    wrong_id = []
     for question in questions:
-        print("\n" + question[2])
-        print("A) " + question[3])
-        print("B) " + question[4])
-        print("C) " + question[5])
-        print("D) " + question[6])
+        print("\n" + question[3])
+        print("A) " + question[4])
+        print("B) " + question[5])
+        print("C) " + question[6])
+        print("D) " + question[7])
 
         user_answer = input("Enter your answer (A, B, C, or D): ").upper()
         while user_answer not in ("A", "B", "C", "D"):
@@ -106,8 +108,10 @@ def take_quiz(quiz_id, user_id):
                 "Invalid input. Enter your answer (A, B, C, or D): ").upper()
 
         answers.append(user_answer)
-        if user_answer == question[7]:
+        if user_answer == question[8]:
             correct_count += 1
+        else:
+            wrong_id.append(question[2])
 
     score = correct_count / len(questions) * 100
     cursor.execute(
@@ -126,7 +130,14 @@ def take_quiz(quiz_id, user_id):
     # TODO -- Add a system where the answers for the quiz is sent to the database in the `answers` column in the scores table. Then, answers are checked to see which are correct and which are wrong.
 
     if view_answers == "Y":
-        print(answers)
+        print("Your answers:")
+        print(wrong_id)
+        for question in questions:
+            print(f"{question[2]}: {answers[question[2] - 1]} ", end = '')
+            if question[2] in wrong_id:
+                print(f"❌ Wrong -- Correct answer: {question[8]}")
+            else:
+                print("✔️  Correct")
     elif view_answers == "N":
         pass
 
@@ -176,7 +187,7 @@ def delete_scores(user_id):
         score_ids = [score[0] for score in scores]
         print("The following scores were found for this user:")
         for score in scores:
-            print(f"{score[0]}. Quiz ID: {score[2]}, Score: {score[3]}")
+            print(f"{score[0]}. Quiz ID: {score[2]}, Score: {score[3]}%")
         choice = input(
             "Enter the IDs of the scores you want to delete, separated by commas. Enter \"all\" if you want to delete all scores for the user: ")
         if choice == "all" or "All":

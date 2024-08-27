@@ -4,9 +4,7 @@ from tkinter import messagebox
 from tkinter import simpledialog
 import sqlite3
 import random
-
-conn = sqlite3.connect('quizzes.db')
-cursor = conn.cursor()
+import os
 
 class QuizApp:
     def __init__(self, root):
@@ -16,6 +14,14 @@ class QuizApp:
         self.root.geometry("%dx%d+0+0" % (self.w, self.h))
         self.root.resizable(0,0)
         self.top_button_frame = None  # Initialize the top button frame as None
+        self.questions = []
+        
+        db_file = 'quiz.db'
+        if not os.path.exists(db_file):
+            open(db_file, 'w').close()  # Create an empty file
+
+        self.conn = sqlite3.connect('quiz.db')
+        self.cursor = self.conn.cursor()
         self.main_menu("Create")
         
     def create_top_buttons(self):
@@ -66,14 +72,8 @@ class QuizApp:
         self.take_quiz_button.pack(side=tk.LEFT, padx=10)
         
     def back_btn(self, current_frame, new_frame):
-        try:
-            if self.questions:
-                response = messagebox.askyesno("Warning", "You have unsaved changes. Are you sure you want to go back?")
-                if response:
-                    for frame in current_frame:
-                        frame.destroy()
-                    new_frame()
-        except Exception as e:    
+        response = messagebox.askyesno("Warning", "You may have unsaved changes that will be permanently lost. Are you sure you want to go back?")
+        if response:
             for frame in current_frame:
                 frame.destroy()
             new_frame()
@@ -117,8 +117,8 @@ class QuizApp:
         self.quiz_title = self.quiz_title_entry.get()
         
         # Check if the quiz title already exists
-        cursor.execute('SELECT COUNT(*) FROM quizzes WHERE title = ?', (self.quiz_title,))
-        exists = cursor.fetchone()[0]
+        self.cursor.execute('SELECT COUNT(*) FROM quizzes WHERE title = ?', (self.quiz_title,))
+        exists = self.cursor.fetchone()[0]
         
         if exists > 0:
             # If the title exists, prompt the user to enter a new title
@@ -229,7 +229,7 @@ class QuizApp:
             
     def save_quiz_data(self, frames, new_frame, quiz_title=None):
         # Create the quizzes table if it doesn't exist
-        cursor.execute('''
+        self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS quizzes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 title TEXT NOT NULL,
@@ -248,13 +248,13 @@ class QuizApp:
             question_type = type_var.get()
             answer_text = answer_entry.get()
             
-            cursor.execute('''
+            self.cursor.execute('''
             INSERT INTO quizzes (title, question, type, answer)
             VALUES (?, ?, ?, ?)
         ''', (quiz_title, question_text, question_type, answer_text))
 
         # Commit the changes
-        conn.commit()
+        self.conn.commit()
         messagebox.showinfo("Success", f"Quiz '{quiz_title}' saved successfully!")
 
         # Destroy the question interface frame and button frame
@@ -267,15 +267,15 @@ class QuizApp:
         if self.main_menu_frame:
             self.main_menu_frame.destroy()
         # Fetch existing quizzes from the database by title
-        cursor.execute("SELECT DISTINCT title FROM quizzes")
-        quiz_titles = cursor.fetchall()
+        self.cursor.execute("SELECT DISTINCT title FROM quizzes")
+        quiz_titles = self.cursor.fetchall()
         
         # Create a new frame for editing quizzes
         self.edit_quiz_frame = tk.Frame(self.root)
         self.edit_quiz_frame.pack(pady=(int(self.h * 0.15), 20))
 
         # Create a label and a listbox for quiz selection
-        tk.Label(self.edit_quiz_frame, text="Select a Quiz to Edit or Delete:", font=("Arial", 24)).pack()
+        tk.Label(self.edit_quiz_frame, text="Select a Quiz to Edit, Delete, or Rename:", font=("Arial", 32)).pack()
 
         self.quiz_listbox = tk.Listbox(self.edit_quiz_frame, font=("Arial", 20))
         for quiz in quiz_titles:
@@ -302,8 +302,8 @@ class QuizApp:
             quiz_title = self.quiz_listbox.get(selected_quiz)  # Get the selected quiz title
             response = messagebox.askyesno("Confirm Delete", "Are you sure you want to delete this quiz?")
             if response:
-                cursor.execute("DELETE FROM quizzes WHERE title = ?", (quiz_title,))
-                conn.commit()
+                self.cursor.execute("DELETE FROM quizzes WHERE title = ?", (quiz_title,))
+                self.conn.commit()
                 messagebox.showinfo("Success", "Quiz deleted successfully!")
                 self.edit_quiz_frame.destroy()
                 self.edit_quiz()
@@ -318,15 +318,15 @@ class QuizApp:
 
             if new_title:
                 # Check if the new title already exists
-                cursor.execute('SELECT COUNT(*) FROM quizzes WHERE title = ?', (new_title,))
-                exists = cursor.fetchone()[0]
+                self.cursor.execute('SELECT COUNT(*) FROM quizzes WHERE title = ?', (new_title,))
+                exists = self.cursor.fetchone()[0]
                 if exists > 0:
                     messagebox.showerror("Duplicate Title", "This quiz title already exists. Please choose a different title.")
                     return
 
                 # Update the quiz title in the database
-                cursor.execute("UPDATE quizzes SET title = ? WHERE title = ?", (new_title, old_title))
-                conn.commit()
+                self.cursor.execute("UPDATE quizzes SET title = ? WHERE title = ?", (new_title, old_title))
+                self.conn.commit()
                 messagebox.showinfo("Success", f"Quiz renamed to '{new_title}' successfully!")
                 self.edit_quiz_frame.destroy()
                 self.edit_quiz()
@@ -337,8 +337,8 @@ class QuizApp:
         selected_quiz = self.quiz_listbox.curselection()
         if selected_quiz:
             quiz_title = self.quiz_listbox.get(selected_quiz)  # Get the selected quiz title
-            cursor.execute("SELECT question, type, answer FROM quizzes WHERE title = ?", (quiz_title,))
-            quiz_data = cursor.fetchall()
+            self.cursor.execute("SELECT question, type, answer FROM quizzes WHERE title = ?", (quiz_title,))
+            quiz_data = self.cursor.fetchall()
 
             # Create a new frame for editing quiz data
             self.edit_quiz_frame.destroy()
@@ -428,65 +428,69 @@ class QuizApp:
             messagebox.showinfo("Error", "Quiz not found.")
             
     def save_edited_quiz(self, frames, new_frame, quiz_title):
-        cursor.execute('DELETE FROM quizzes WHERE title = ?', (quiz_title,))
+        self.cursor.execute('DELETE FROM quizzes WHERE title = ?', (quiz_title,))
         self.save_quiz_data(frames, new_frame, quiz_title)
         
     def quiz_selection(self):
         # Create a new frame for the take quiz page
         self.main_menu_frame.destroy()
         self.take_quiz_frame = tk.Frame(self.root)
-        self.take_quiz_frame.pack(pady=20)
+        self.take_quiz_frame.pack(pady=(int(self.h * 0.15), 20))
 
         # Create a label for the quiz selection
-        self.quiz_selection_label = tk.Label(self.take_quiz_frame, text="Select a Quiz:", font=("Arial", 20))
+        self.quiz_selection_label = tk.Label(self.take_quiz_frame, text="Select a Quiz to start:", font=("Arial", 32))
         self.quiz_selection_label.pack()
 
         # Create a listbox for the quiz selection
         self.quiz_listbox = tk.Listbox(self.take_quiz_frame, font=("Arial", 20))
-        self.quiz_listbox.pack()
+        self.quiz_listbox.pack(pady=int(self.h * 0.05))
         
         # Add the existing quizzes to the listbox and their number of questions
-        cursor.execute("SELECT DISTINCT title FROM quizzes")
-        quiz_titles = cursor.fetchall()
+        self.cursor.execute("SELECT DISTINCT title FROM quizzes")
+        quiz_titles = self.cursor.fetchall()
         for quiz in quiz_titles:
-            cursor.execute("SELECT COUNT(*) FROM quizzes WHERE title = ?", (quiz[0],))
-            num_questions = cursor.fetchone()[0]
+            self.cursor.execute("SELECT COUNT(*) FROM quizzes WHERE title = ?", (quiz[0],))
+            num_questions = self.cursor.fetchone()[0]
             self.quiz_listbox.insert(tk.END, f"{quiz[0]} (Questions: {num_questions})")
+            
+        # Back button to return to the main menu
+        back_button = tk.Button(self.take_quiz_frame, text="Back", command=lambda: self.back_btn([self.take_quiz_frame], self.main_menu), font=("DejaVuSans", 24, "bold"))
+        back_button.pack(side=tk.LEFT, padx=(self.w * 0.025, 10), pady=int(self.h * 0.05))
         
         # Create a button to start the quiz
         self.start_quiz_button = tk.Button(self.take_quiz_frame, text="Start Quiz", command=self.start_quiz, font=("DejaVuSans", 24, "bold"))
-        self.start_quiz_button.pack(pady=20)
+        self.start_quiz_button.pack(side=tk.LEFT, padx=10, pady=int(self.h * 0.05))
     
     def start_quiz(self):
         selected_quiz = self.quiz_listbox.curselection()
         if selected_quiz:
-            quiz_title = self.quiz_listbox.get(selected_quiz)  # Get the selected quiz title
+            # Get the selected quiz title
+            quiz_title = self.quiz_listbox.get(selected_quiz)  
             
             # Fetch the questions for the selected quiz
-            cursor.execute("SELECT question, type, answer FROM quizzes WHERE title = ?", (quiz_title.split()[0],))
-            self.quiz_data = cursor.fetchall()  # Store quiz data for access in take_quiz
+            self.cursor.execute("SELECT question, type, answer FROM quizzes WHERE title = ?", (quiz_title.split(' (')[0],))
+            self.quiz_data = self.cursor.fetchall()  # Store quiz data for access in take_quiz
             
             if not self.quiz_data:
                 messagebox.showwarning("No Questions", "This quiz has no questions.")
                 return
 
             # Create a new frame for the quiz interface
+            self.take_quiz_frame.destroy()
             self.quiz_frame = tk.Frame(self.root)
             self.quiz_frame.pack(pady=20, fill=tk.BOTH, expand=True)
-
-            # Display the quiz title and number of questions
-            title_label = tk.Label(self.quiz_frame, text=f"Quiz: {quiz_title} (Questions: {len(self.quiz_data)})", font=("Arial", 30))
-            title_label.pack(pady=(10, 0))
-
+            
             # Initialize question index
             self.current_question_index = 0
             self.results = []
-            self.take_quiz()  # Start displaying the first question
 
+            self.take_quiz()
         else:
             messagebox.showwarning("Selection Error", "Please select a quiz to start.")
 
     def take_quiz(self):
+        if self.current_question_index >= len(self.quiz_data):
+            return
         # Clear the current quiz frame if it exists
         for widget in self.quiz_frame.winfo_children():
             widget.destroy()
@@ -503,9 +507,23 @@ class QuizApp:
         # Get the current question and its details
         question, question_type, correct_answer = self.quiz_data[self.current_question_index]
 
+        if question == "":
+            messagebox.showwarning("No Question", "This question is empty. Skipping.")
+            # Move to the next question
+            self.current_question_index += 1
+
+            # Check if there are more questions
+            if self.current_question_index < len(self.quiz_data):
+                self.take_quiz()  # Display the next question
+            else:
+                self.quiz_ended()
+                self.quiz_frame.destroy()  # Clean up the quiz frame
+                self.main_menu()  # Return to the main menu
+        
         # Display the question
         question_label = tk.Label(self.quiz_frame, text=f"Q{self.current_question_index + 1}: {question}", font=("Arial", 24))
-        question_label.pack(pady=(10, 0))
+        question_label.pack(pady=(self.h * 0.35, 0))
+        
 
         if question_type == "Multiple Choice":
             # Prepare multiple choice options
@@ -524,7 +542,7 @@ class QuizApp:
 
         else:
             # Create an entry for the answer
-            self.answer_entry = tk.Entry(self.quiz_frame, font=("Arial", 20))
+            self.answer_entry = tk.Entry(self.quiz_frame, font=("Arial", 20), width=100)
             self.answer_entry.pack(pady=(10, 20))
             
         # Create frame for buttons
@@ -532,16 +550,16 @@ class QuizApp:
         self.button_frame.pack(pady=(20, int(self.h * 0.1)))
 
         # Create a button to go back to the main menu
-        back_button = tk.Button(self.button_frame, text="Back to Menu", command=self.confirm_back_to_menu, font=("Arial", 20))
+        back_button = tk.Button(self.button_frame, text="Back to Menu", command=self.confirm_back_to_menu, font=("DejaVuSans", 24, "bold"))
         back_button.pack(side=tk.LEFT, padx=10)
 
         # Create a skip button
-        skip_button = tk.Button(self.button_frame, text="Skip Question", command=self.skip_question, font=("Arial", 20))
+        skip_button = tk.Button(self.button_frame, text="Skip Question", command=self.skip_question, font=("DejaVuSans", 24, "bold"))
         skip_button.pack(side=tk.LEFT, padx=10)
 
         if question_type != "Multiple Choice":
             # Create a submit button
-            submit_button = tk.Button(self.button_frame, text="Submit Answer", command=self.submit_answer, font=("Arial", 20))
+            submit_button = tk.Button(self.button_frame, text="Submit Answer", command=self.submit_answer, font=("DejaVuSans", 24, "bold"))
             submit_button.pack(side=tk.LEFT, padx=10)
 
     def submit_answer(self):

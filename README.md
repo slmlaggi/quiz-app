@@ -98,10 +98,10 @@ Allowing users to export their quizzes to a file and import them back could enha
 
 ### Enhanced UI/UX
 
-Further improvements to the user interface, such as themes or more interactive elements, could make the application more engaging.
+Further improvements to the user interface, such as themes, interactive elements, or menu bars could make the application more engaging.
 
 ## Conclusion
 
-The Quiz Application serves as an excellent tool for creating, managing, and taking quizzes. With its user-friendly interface and robust functionality, it meets the needs of educators and learners alike. The design choices made during development ensure that the application is not only functional but also enjoyable to use.
+The Quiz Application serves as an excellent tool for creating, managing, and taking quizzes. With its user-friendly interface and robust functionality, it meets the needs of educators and learners alike. The design choices made during development ensure that the application is functional and enjoyable to use.
 
 As the application evolves, the potential for additional features and improvements is vast, promising an even richer experience for users in the future.

@@ -98,7 +98,7 @@ Allowing users to export their quizzes to a file and import them back could enha
 
 ### Enhanced UI/UX
 
-Further improvements to the user interface, such as themes, interactive elements, or menu bars could make the application more engaging.
+Further improvements to the user interface, such as colour themes, interactive elements, or menu bars could make the application more engaging.
 
 ## Conclusion
 

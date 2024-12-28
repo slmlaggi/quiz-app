@@ -1,5 +1,7 @@
 # Project Overview
 
+This project was built as a final project for CS50.
+
 This simple, user-friendly application is built using Python's Tkinter library and SQLite for data storage. The application allows users to create, edit, and take quizzes. It features a clean and intuitive interface that guides users through the process of managing quizzes, from creating to editing and taking them.
 
 The main functionalities include the creation of new quizzes with customizable questions and answers, editing preexisting quizzes, and taking the created quizzes. Furthermore, there are options to rename and delete quizzes, ensuring that users can manage their quiz library effectively.

@@ -117,8 +117,11 @@ class QuizApp:
         self.quiz_title = self.quiz_title_entry.get()
         
         # Check if the quiz title already exists
-        self.cursor.execute('SELECT COUNT(*) FROM quizzes WHERE title = ?', (self.quiz_title,))
-        exists = self.cursor.fetchone()[0]
+        try:
+            self.cursor.execute("SELECT COUNT(*) FROM quizzes WHERE title = ?", (self.quiz_title,))
+            exists = self.cursor.fetchone()[0]
+        except sqlite3.OperationalError:
+            exists = 0
         
         if exists > 0:
             # If the title exists, prompt the user to enter a new title
@@ -267,7 +270,11 @@ class QuizApp:
         if self.main_menu_frame:
             self.main_menu_frame.destroy()
         # Fetch existing quizzes from the database by title
-        self.cursor.execute("SELECT DISTINCT title FROM quizzes")
+        try:
+            self.cursor.execute("SELECT DISTINCT title FROM quizzes")
+        except sqlite3.OperationalError:
+            messagebox.showerror("Database Error", "An error occurred while accessing the database.")
+            return self.main_menu()
         quiz_titles = self.cursor.fetchall()
         
         # Create a new frame for editing quizzes
@@ -432,6 +439,16 @@ class QuizApp:
         self.save_quiz_data(frames, new_frame, quiz_title)
         
     def quiz_selection(self):
+        if self.main_menu_frame:
+            self.main_menu_frame.destroy()
+        # Fetch existing quizzes
+        try:
+            self.cursor.execute("SELECT DISTINCT title FROM quizzes")
+        except sqlite3.OperationalError:
+            messagebox.showerror("Database Error", "An error occurred while accessing the database.")
+            return self.main_menu()
+        
+        quiz_titles = self.cursor.fetchall()
         # Create a new frame for the take quiz page
         self.main_menu_frame.destroy()
         self.take_quiz_frame = tk.Frame(self.root)
@@ -445,9 +462,6 @@ class QuizApp:
         self.quiz_listbox = tk.Listbox(self.take_quiz_frame, font=("Arial", 20))
         self.quiz_listbox.pack(pady=int(self.h * 0.05))
         
-        # Add the existing quizzes to the listbox and their number of questions
-        self.cursor.execute("SELECT DISTINCT title FROM quizzes")
-        quiz_titles = self.cursor.fetchall()
         for quiz in quiz_titles:
             self.cursor.execute("SELECT COUNT(*) FROM quizzes WHERE title = ?", (quiz[0],))
             num_questions = self.cursor.fetchone()[0]
@@ -570,7 +584,7 @@ class QuizApp:
             messagebox.showinfo("Correct!", "Your answer is correct!")
             self.results.append(1)
         else:
-            messagebox.showinfo("Incorrect", f"The correct answer was:{correct_answer}")
+            messagebox.showinfo("Incorrect", f"The correct answer was: {correct_answer}")
             self.results.append(0)
 
         # Move to the next question
@@ -629,7 +643,7 @@ class QuizApp:
         if len(id_incorrect) > 0:
             incorrects = '(Questions answered incorrectly: '
             for i in id_incorrect:
-                if i != len(id_incorrect) - 1:
+                if i < len(id_incorrect):
                     incorrects += f"Q{i+1}, "
                 else:
                     incorrects += f"Q{i+1})"
